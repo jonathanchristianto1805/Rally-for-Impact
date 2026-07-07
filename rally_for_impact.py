@@ -51,7 +51,7 @@ if 'odds_history' not in st.session_state:
 # -------------------------
 # Page Config & Styling
 # -------------------------
-st.set_page_config(page_title="Gender Reveal Prediction Market 🎉", layout="centered")
+st.set_page_config(page_title="Rally for Impact Market 🎉", layout="centered")
 
 st.markdown("""
 <style>
@@ -89,14 +89,14 @@ if isinstance(popout_mode, list):
 # Optional: Logo and Title
 # -------------------------
 if not popout_mode:
-    st.image("baby.png", width=1000)
+    st.image("Salinan dari KV Rally of Impact.png", width=1000)
     st.markdown(
         """
         <h1 style='text-align: center; margin-top: -170px'>
-            🎉 Gender Reveal Prediction Market (Rupiah) - Real Money, % for Charity
+            🎉 Rally for Impact Market (Rupiah) - Real Money, % for Charity
         </h1>
         <p style='text-align: center; font-size: 18px; color: #212121;'>
-            Everyone places a bet on either <strong>'Boy'</strong> or <strong>'Girl'</strong>.<br>
+            Everyone places a bet on either <strong>'Team 1'</strong> or <strong>'Team 2'</strong>.<br>
             Winners share the loser pool money proportionally. The multiplier is calculated at the end of the event.
             <br>
             <em>Note:</em> 20% of each winner’s profit will be donated to a chosen non-profit.
@@ -115,7 +115,7 @@ if not popout_mode:
     with st.expander("📌 Place Your Bet"):
         with st.form("bet_form"):
             name = st.text_input("Your Name")
-            choice = st.selectbox("Your Prediction", ["Boy", "Girl"])
+            choice = st.selectbox("Your Prediction", ["Team 1", "Team 2"])
             bet = st.number_input("Bet Amount (Rupiah)", min_value=10000, step=10000)
             submitted = st.form_submit_button("Place Bet")
             if submitted:
@@ -149,24 +149,24 @@ if not popout_mode:
 # -------------------------
 # Recalculate Totals
 # -------------------------
-total_boy = st.session_state.bets[st.session_state.bets['Choice'] == 'Boy']['Bet'].sum()
-total_girl = st.session_state.bets[st.session_state.bets['Choice'] == 'Girl']['Bet'].sum()
-total_pool = total_boy + total_girl
-boy_odds = total_boy / total_pool if total_pool > 0 else 0
-girl_odds = total_girl / total_pool if total_pool > 0 else 0
+total_team_1 = st.session_state.bets[st.session_state.bets['Choice'] == 'Team 1']['Bet'].sum()
+total_team_2 = st.session_state.bets[st.session_state.bets['Choice'] == 'Team 2']['Bet'].sum()
+total_pool = total_team_1 + total_team_2
+boy_odds = total_team_1 / total_pool if total_pool > 0 else 0
+girl_odds = total_team_2 / total_pool if total_pool > 0 else 0
 
 # -------------------------
 # Save Odds History
 # -------------------------
 if total_pool > 0:
     if st.session_state.odds_history.empty or (
-        boy_odds != st.session_state.odds_history.iloc[-1]['Boy'] or
-        girl_odds != st.session_state.odds_history.iloc[-1]['Girl']
+        team_1_odds != st.session_state.odds_history.iloc[-1]['Team 1'] or
+        team_2_odds != st.session_state.odds_history.iloc[-1]['Team 2']
     ):
         new_odds = pd.DataFrame([{
             'Timestamp': datetime.now(),
-            'Boy': boy_odds,
-            'Girl': girl_odds
+            'Team 1': team_1_odds,
+            'Team 2': team_2_odds
         }])
         st.session_state.odds_history = pd.concat([
             st.session_state.odds_history,
@@ -179,30 +179,30 @@ if total_pool > 0:
 # -------------------------
 if popout_mode == "pie":
     st.markdown("""<meta http-equiv="refresh" content="20">""", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; font-size: 36px;'>Place your bet: Boy or Girl</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 36px;'>Place your bet: Team 1 or Team 2</h1>", unsafe_allow_html=True)
     bets = pd.read_csv("bets.csv")
     # Recalculate odds
-    total_boy = bets[bets['Choice'] == 'Boy']['Bet'].sum()
-    total_girl = bets[bets['Choice'] == 'Girl']['Bet'].sum()
-    total_pool = total_boy + total_girl
-    boy_odds = total_boy / total_pool if total_pool > 0 else 0
-    girl_odds = total_girl / total_pool if total_pool > 0 else 0
+    total_team_1 = bets[bets['Choice'] == 'Team 1']['Bet'].sum()
+    total_team_2 = bets[bets['Choice'] == 'Team 2']['Bet'].sum()
+    total_pool = total_team_1 + total_team_2
+    Team_1_odds = total_team_1 / total_pool if total_pool > 0 else 0
+    Team_2_odds = total_team_2 / total_pool if total_pool > 0 else 0
 
     st.markdown("## 📊 Live Market")
 
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("💙 Boy Odds", f"{boy_odds:.2%}")
+        st.metric("Team 1 Odds", f"{team_1_odds:.2%}")
     with col2:
-        st.metric("💖 Girl Odds", f"{girl_odds:.2%}")
+        st.metric("Team 2 Odds", f"{team_2_odds:.2%}")
 
     st.markdown(f"**Total Pool:** Rp {total_pool:,.0f}")
 
     # Pie Chart
     if total_pool > 0:
         fig = px.pie(
-            names=['Boy', 'Girl'],
-            values=[total_boy, total_girl],
+            names=['Team 1', 'Team 2'],
+            values=[total_team_1, total_team_2],
             color_discrete_sequence=['#1f77b4', '#ff69b4'],
             title='Current Bet Distribution'
         )
@@ -224,10 +224,10 @@ elif popout_mode == "line":
         fig = px.line(
             odds,
             x='Timestamp',
-            y=['Boy', 'Girl'],
+            y=['Team 1', 'Team 2'],
             markers=True,
             title='Live Odds Over Time',
-            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'}
+            color_discrete_map={'Team 1': '#1f77b4', 'Team 2': '#ff69b4'}
         )
         fig.update_layout(paper_bgcolor='#fff9c4', plot_bgcolor='#fff9c4')
         st.plotly_chart(fig, use_container_width=True)
@@ -245,19 +245,19 @@ if not popout_mode:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("💙 Boy Odds", f"{boy_odds:.2%}")
+        st.metric("💙 Team 1 Odds", f"{team_1_odds:.2%}")
     with col2:
-        st.metric("💖 Girl Odds", f"{girl_odds:.2%}")
+        st.metric("💖 Team 2 Odds", f"{team_2_odds:.2%}")
 
     st.write(f"**Total Pool:** Rp {total_pool:,.0f}")
 
     # Pie Chart
     if total_pool > 0:
         pie_fig = px.pie(
-            names=['Boy', 'Girl'],
-            values=[total_boy, total_girl],
-            color=['Boy', 'Girl'],
-            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'},
+            names=['Team 1', 'Team 2'],
+            values=[total_team_1, total_team_2],
+            color=['Team 1', 'Team 2'],
+            color_discrete_map={'Team 1': '#1f77b4', 'Team 2': '#ff69b4'},
             hole=0.3,
             title="Current Bet Distribution"
         )
@@ -269,10 +269,10 @@ if not popout_mode:
         line_fig = px.line(
             st.session_state.odds_history,
             x='Timestamp',
-            y=['Boy', 'Girl'],
+            y=['Team 1', 'Team 2'],
             markers=True,
             title='Market Probability History',
-            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'}
+            color_discrete_map={'Team 1': '#1f77b4', 'Team 2': '#ff69b4'}
         )
         line_fig.update_layout(paper_bgcolor='#fff9c4', plot_bgcolor='#fff9c4')
         st.plotly_chart(line_fig, use_container_width=True)
@@ -282,23 +282,23 @@ if not popout_mode:
     """)
 
     # 🔒 SECRET ADMIN SECTION: Reveal Gender, Payouts & Reset
-    with st.expander("🔒 Admin: Reveal Gender, Payouts & Reset"):
+    with st.expander("🔒 Admin: Rally for Impact, Payouts & Reset"):
         admin_pass = st.text_input("Enter admin password:", type="password")
 
         if admin_pass == "mysecret123":
-            st.header("🎁 Reveal the Actual Gender")
-            gender = st.selectbox("Actual Gender", ["-- Select --", "Boy", "Girl"])
+            st.header("🎁 Rally for Impact")
+            Team = st.selectbox("Which Team", ["-- Select --", "Team 1", "Team 2"])
             if gender != "-- Select --":
-                st.session_state.actual_gender = gender
-                st.success(f"🎉 Actual Gender: {gender}")
+                st.session_state.which_team = team
+                st.success(f"🎉 Which Team: {team}")
 
-            if st.session_state.actual_gender:
-                winners = st.session_state.bets[st.session_state.bets['Choice'] == st.session_state.actual_gender]
+            if st.session_state.which_team:
+                winners = st.session_state.bets[st.session_state.bets['Choice'] == st.session_state.which_team]
                 total_winner_bets = winners['Bet'].sum()
 
                 payouts = []
                 for _, row in st.session_state.bets.iterrows():
-                    if row['Choice'] == st.session_state.actual_gender and total_winner_bets > 0:
+                    if row['Choice'] == st.session_state.which_team and total_winner_bets > 0:
                         payout = row['Bet'] * total_pool / total_winner_bets
                         payout = round(payout / 100000) * 100000
                     else:
@@ -324,7 +324,7 @@ if not popout_mode:
                 st.download_button(
                     label="📥 Download Payouts as Excel",
                     data=towrite,
-                    file_name="GenderReveal_Payouts.xlsx",
+                    file_name="RallyforImpact_Payouts.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
@@ -332,7 +332,7 @@ if not popout_mode:
             if st.button("🔄 Reset Everything"):
                 st.session_state.bets = pd.DataFrame(columns=['Name', 'Choice', 'Bet'])
                 st.session_state.actual_gender = None
-                st.session_state.odds_history = pd.DataFrame(columns=['Timestamp', 'Boy', 'Girl'])
+                st.session_state.odds_history = pd.DataFrame(columns=['Timestamp', 'Team 1', 'Team 2'])
                 save_bets(st.session_state.bets)
                 save_odds(st.session_state.odds_history)
                 st.rerun()
