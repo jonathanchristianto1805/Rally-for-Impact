@@ -1,505 +1,340 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime
-import json
-from pathlib import Path
+from io import BytesIO
+import time
+import os
+import matplotlib.pyplot as plt
 
-# Configure Streamlit
-st.set_page_config(
-    page_title="Rally for Impact - Prediction Market",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# -------------------------
+# File paths
+# -------------------------
+BETS_FILE = "bets.csv"
+ODDS_FILE = "odds_history.csv"
 
-# Custom CSS untuk styling
+# -------------------------
+# Load/save data from file if available
+# -------------------------
+def load_bets():
+    if os.path.exists(BETS_FILE):
+        return pd.read_csv(BETS_FILE)
+    else:
+        return pd.DataFrame(columns=['Name', 'Choice', 'Bet'])
+
+def save_bets(df):
+    df.to_csv(BETS_FILE, index=False)
+
+def load_odds():
+    if os.path.exists(ODDS_FILE):
+        df = pd.read_csv(ODDS_FILE)
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+        return df
+    else:
+        return pd.DataFrame(columns=['Timestamp', 'Boy', 'Girl'])
+
+def save_odds(df):
+    df.to_csv(ODDS_FILE, index=False)
+
+# -------------------------
+# Session Initialization
+# -------------------------
+if 'bets' not in st.session_state:
+    st.session_state.bets = load_bets()
+
+if 'actual_gender' not in st.session_state:
+    st.session_state.actual_gender = None
+
+if 'odds_history' not in st.session_state:
+    st.session_state.odds_history = load_odds()
+
+# -------------------------
+# Page Config & Styling
+# -------------------------
+st.set_page_config(page_title="Gender Reveal Prediction Market 🎉", layout="centered")
+
 st.markdown("""
-    <style>
-    /* General styling */
-    :root {
-        --primary: #1a472a;
-        --secondary: #d4a574;
-        --accent: #e8795c;
-        --light: #f5f5f5;
-        --dark: #2d2d2d;
-    }
-    
-    /* Main container */
-    .main {
-        background-color: #ffffff;
-    }
-    
-    /* Header */
-    .header-section {
-        background: linear-gradient(135deg, #1a472a 0%, #2d5a3d 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 12px;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
-    
-    .header-section h1 {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    
-    .header-section .tagline {
-        font-size: 1.1rem;
-        color: #d4a574;
-        font-weight: 500;
-    }
-    
-    /* Match cards */
-    .match-card {
-        background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
-        border-left: 5px solid #e8795c;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    
-    .match-title {
-        font-size: 1.3rem;
-        font-weight: bold;
-        color: #1a472a;
-        margin-bottom: 1rem;
-    }
-    
-    .team-option {
-        background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .team-option:hover {
-        border-color: #e8795c;
-        box-shadow: 0 4px 12px rgba(232, 121, 92, 0.15);
-    }
-    
-    .team-option.selected {
-        border-color: #d4a574;
-        background: #fffaf5;
-    }
-    
-    .team-name {
-        font-size: 1.1rem;
-        font-weight: bold;
-        color: #1a472a;
-    }
-    
-    .team-odds {
-        font-size: 0.9rem;
-        color: #666;
-    }
-    
-    /* Input section */
-    .donation-input {
-        background: #f9f9f9;
-        border: 2px solid #d4a574;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-top: 1rem;
-    }
-    
-    .donation-label {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #1a472a;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Statistics */
-    .stats-box {
-        background: linear-gradient(135deg, #1a472a 0%, #2d5a3d 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        text-align: center;
-    }
-    
-    .stats-value {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #d4a574;
-    }
-    
-    .stats-label {
-        font-size: 0.9rem;
-        color: #b0b0b0;
-        margin-top: 0.5rem;
-    }
-    
-    /* Button styling */
-    .submit-btn {
-        background: linear-gradient(135deg, #e8795c 0%, #d97547 100%);
-        color: white;
-        padding: 1rem 2rem;
-        border: none;
-        border-radius: 8px;
-        font-size: 1.1rem;
-        font-weight: bold;
-        cursor: pointer;
-        width: 100%;
-        transition: all 0.3s ease;
-    }
-    
-    .submit-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(232, 121, 92, 0.3);
-    }
-    
-    /* Summary section */
-    .summary-box {
-        background: #f0fdf4;
-        border: 2px solid #86efac;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-top: 2rem;
-    }
-    
-    .summary-title {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #15803d;
-        margin-bottom: 1rem;
-    }
-    
-    .summary-item {
-        padding: 0.5rem 0;
-        color: #166534;
-    }
-    
-    /* Donation info */
-    .donation-info {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        border-left: 5px solid #f59e0b;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-top: 2rem;
-    }
-    
-    .donation-info-title {
-        font-size: 1.1rem;
-        font-weight: bold;
-        color: #92400e;
-        margin-bottom: 0.5rem;
-    }
-    
-    .donation-info-text {
-        color: #b45309;
-        line-height: 1.6;
-    }
-    
-    .donation-account {
-        background: white;
-        padding: 1rem;
-        border-radius: 6px;
-        margin-top: 1rem;
-        font-family: monospace;
-        text-align: center;
-        font-weight: bold;
-        color: #1a472a;
-    }
-    </style>
+<style>
+.stApp, .block-container {
+    background-color: #fff9c4 !important;
+    color: #212121 !important;
+}
+.stMarkdown h1, h2, h3, p, ul, ol, strong, em {
+    color: #212121 !important;
+}
+input, textarea, select {
+    background-color: #ffffff !important;
+    color: #212121 !important;
+}
+.stButton > button {
+    background-color: #212121 !important;
+    color: #fff9c4 !important;
+}
+.stDataFrame, .stTable {
+    color: #212121 !important;
+    background-color: #fffde7 !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'predictions' not in st.session_state:
-    st.session_state.predictions = []
+# -------------------------
+# Handle Pop-out View Mode
+# -------------------------
+query_params = dict(st.query_params)
+popout_mode = query_params.get("view")
+if isinstance(popout_mode, list):
+    popout_mode = popout_mode[0]
 
-if 'total_pot' not in st.session_state:
-    st.session_state.total_pot = 0
-
-# Data structure
-MATCHES = [
-    {
-        'id': 1,
-        'name': 'Pertandingan 1: Exhibition Match',
-        'teams': [
-            {'name': 'Tim A', 'probability': 0.48},
-            {'name': 'Tim B', 'probability': 0.52}
-        ]
-    },
-    {
-        'id': 2,
-        'name': 'Pertandingan 2: Exhibition Match',
-        'teams': [
-            {'name': 'Tim C', 'probability': 0.45},
-            {'name': 'Tim D', 'probability': 0.55}
-        ]
-    }
-]
-
-def calculate_odds(probability):
-    """Calculate decimal odds from probability"""
-    return round(1 / probability, 2)
-
-def format_currency(amount):
-    """Format amount as Indonesian Rupiah"""
-    return f"Rp {amount:,.0f}"
-
-# Header
-st.markdown("""
-    <div class="header-section">
-        <h1>🎯 Rally for Impact</h1>
-        <div class="tagline">Prediction Market untuk Amal</div>
-    </div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-### Cara Bermain
-1. Pilih tim yang menurut Anda akan menang di setiap pertandingan
-2. Masukkan nominal donasi Anda (minimal Rp 10.000)
-3. Semua dana yang terkumpul akan didonasikan untuk amal
-4. Jika prediksi Anda benar, hadiah akan dibagikan kepada para pemenang
-""")
-
-# Main content
-st.markdown("---")
-
-# Track selections
-match1_selection = None
-match2_selection = None
-donation_amount = 0
-
-col1, col2 = st.columns(2)
-
-# Match 1
-with col1:
-    st.markdown('<div class="match-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="match-title">{MATCHES[0]["name"]}</div>', unsafe_allow_html=True)
-    
-    match1_choice = st.radio(
-        "Pilih pemenang:",
-        options=[f"{team['name']} (Odds: {calculate_odds(team['probability'])}x)" 
-                for team in MATCHES[0]['teams']],
-        key="match1",
-        label_visibility="collapsed"
-    )
-    match1_selection = MATCHES[0]['teams'][0 if 'Tim A' in match1_choice else 1]
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Match 2
-with col2:
-    st.markdown('<div class="match-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="match-title">{MATCHES[1]["name"]}</div>', unsafe_allow_html=True)
-    
-    match2_choice = st.radio(
-        "Pilih pemenang:",
-        options=[f"{team['name']} (Odds: {calculate_odds(team['probability'])}x)" 
-                for team in MATCHES[1]['teams']],
-        key="match2",
-        label_visibility="collapsed"
-    )
-    match2_selection = MATCHES[1]['teams'][0 if 'Tim C' in match2_choice else 1]
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("---")
-
-# Donation input
-st.markdown('<div class="donation-input">', unsafe_allow_html=True)
-st.markdown('<div class="donation-label">💰 Nominal Donasi (dalam Rupiah)</div>', unsafe_allow_html=True)
-
-col1, col2 = st.columns([3, 1])
-with col1:
-    donation_amount = st.number_input(
-        "Masukkan nominal donasi Anda",
-        min_value=10000,
-        step=10000,
-        value=100000,
-        label_visibility="collapsed"
+# -------------------------
+# Optional: Logo and Title
+# -------------------------
+if not popout_mode:
+    st.image("baby.png", width=1000)
+    st.markdown(
+        """
+        <h1 style='text-align: center; margin-top: -170px'>
+            🎉 Gender Reveal Prediction Market (Rupiah) - Real Money, % for Charity
+        </h1>
+        <p style='text-align: center; font-size: 18px; color: #212121;'>
+            Everyone places a bet on either <strong>'Boy'</strong> or <strong>'Girl'</strong>.<br>
+            Winners share the loser pool money proportionally. The multiplier is calculated at the end of the event.
+            <br>
+            <em>Note:</em> 20% of each winner’s profit will be donated to a chosen non-profit.
+            <br>
+            <strong>📌 Please transfer your bet amount to: <u>6500887786 a/n Joseph Ian Tanuri</u></strong><br>
+            <strong><em>“Untuk Kalangan Sendiri”</em></strong>
+        </p>
+        """,
+        unsafe_allow_html=True
     )
 
-with col2:
-    st.metric("Total", format_currency(donation_amount))
+# -------------------------
+# Place Your Bet Section
+# -------------------------
+if not popout_mode:
+    with st.expander("📌 Place Your Bet"):
+        with st.form("bet_form"):
+            name = st.text_input("Your Name")
+            choice = st.selectbox("Your Prediction", ["Boy", "Girl"])
+            bet = st.number_input("Bet Amount (Rupiah)", min_value=10000, step=10000)
+            submitted = st.form_submit_button("Place Bet")
+            if submitted:
+                new_bet = pd.DataFrame([[name, choice, bet]], columns=['Name', 'Choice', 'Bet'])
+                st.session_state.bets = pd.concat([st.session_state.bets, new_bet], ignore_index=True)
+                save_bets(st.session_state.bets)
+                st.rerun()
 
-st.markdown('</div>', unsafe_allow_html=True)
+    # -------------------------
+    # Show Bets + Remove Option
+    # -------------------------
+    st.header("📝 Current Bets")
 
-# Calculate potential winnings
-combined_odds = calculate_odds(match1_selection['probability']) * calculate_odds(match2_selection['probability'])
-potential_winnings = donation_amount * combined_odds
+    if not st.session_state.bets.empty:
+        bets_display = st.session_state.bets.copy()
+        bets_display['Bet'] = bets_display['Bet'].apply(lambda x: f"Rp {x:,.0f}")
+        st.dataframe(bets_display)
 
-col1, col2, col3 = st.columns(3)
+        with st.expander("🗑️ Remove a Bet"):
+            bet_index = st.number_input(
+                "Row index to remove (starts at 0)",
+                min_value=0,
+                max_value=len(st.session_state.bets) - 1,
+                step=1
+            )
+            if st.button("Remove Selected Bet"):
+                st.session_state.bets = st.session_state.bets.drop(index=bet_index).reset_index(drop=True)
+                save_bets(st.session_state.bets)
+                st.rerun()
 
-with col1:
-    st.markdown(f"""
-    <div class="stats-box">
-        <div class="stats-value">{combined_odds:.2f}x</div>
-        <div class="stats-label">Combined Odds</div>
-    </div>
-    """, unsafe_allow_html=True)
+# -------------------------
+# Recalculate Totals
+# -------------------------
+total_boy = st.session_state.bets[st.session_state.bets['Choice'] == 'Boy']['Bet'].sum()
+total_girl = st.session_state.bets[st.session_state.bets['Choice'] == 'Girl']['Bet'].sum()
+total_pool = total_boy + total_girl
+boy_odds = total_boy / total_pool if total_pool > 0 else 0
+girl_odds = total_girl / total_pool if total_pool > 0 else 0
 
-with col2:
-    st.markdown(f"""
-    <div class="stats-box">
-        <div class="stats-value">{format_currency(donation_amount)}</div>
-        <div class="stats-label">Nominal Donasi</div>
-    </div>
-    """, unsafe_allow_html=True)
+# -------------------------
+# Save Odds History
+# -------------------------
+if total_pool > 0:
+    if st.session_state.odds_history.empty or (
+        boy_odds != st.session_state.odds_history.iloc[-1]['Boy'] or
+        girl_odds != st.session_state.odds_history.iloc[-1]['Girl']
+    ):
+        new_odds = pd.DataFrame([{
+            'Timestamp': datetime.now(),
+            'Boy': boy_odds,
+            'Girl': girl_odds
+        }])
+        st.session_state.odds_history = pd.concat([
+            st.session_state.odds_history,
+            new_odds
+        ], ignore_index=True)
+        save_odds(st.session_state.odds_history)
 
-with col3:
-    st.markdown(f"""
-    <div class="stats-box">
-        <div class="stats-value">{format_currency(int(potential_winnings))}</div>
-        <div class="stats-label">Potensi Hadiah (jika menang)</div>
-    </div>
-    """, unsafe_allow_html=True)
+# -------------------------
+# Pop-out Views
+# -------------------------
+if popout_mode == "pie":
+    st.markdown("""<meta http-equiv="refresh" content="20">""", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 36px;'>Place your bet: Boy or Girl</h1>", unsafe_allow_html=True)
+    bets = pd.read_csv("bets.csv")
+    # Recalculate odds
+    total_boy = bets[bets['Choice'] == 'Boy']['Bet'].sum()
+    total_girl = bets[bets['Choice'] == 'Girl']['Bet'].sum()
+    total_pool = total_boy + total_girl
+    boy_odds = total_boy / total_pool if total_pool > 0 else 0
+    girl_odds = total_girl / total_pool if total_pool > 0 else 0
 
-st.markdown("---")
+    st.markdown("## 📊 Live Market")
 
-# Summary before submission
-st.markdown('<div class="summary-box">', unsafe_allow_html=True)
-st.markdown('<div class="summary-title">📋 Ringkasan Prediksi Anda</div>', unsafe_allow_html=True)
-
-summary_html = f"""
-<div class="summary-item">
-    <strong>Pertandingan 1:</strong> {match1_selection['name']} (Odds: {calculate_odds(match1_selection['probability'])}x)
-</div>
-<div class="summary-item">
-    <strong>Pertandingan 2:</strong> {match2_selection['name']} (Odds: {calculate_odds(match2_selection['probability'])}x)
-</div>
-<div class="summary-item">
-    <strong>Nominal Donasi:</strong> {format_currency(donation_amount)}
-</div>
-<div class="summary-item">
-    <strong>Potensi Hadiah:</strong> {format_currency(int(potential_winnings))}
-</div>
-"""
-st.markdown(summary_html, unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Submit button
-if st.button("✅ Konfirmasi Prediksi & Donasi", use_container_width=True, key="submit_btn"):
-    prediction = {
-        'timestamp': datetime.now().isoformat(),
-        'match1': match1_selection['name'],
-        'match2': match2_selection['name'],
-        'amount': donation_amount,
-        'potential_winnings': int(potential_winnings),
-        'odds': combined_odds
-    }
-    st.session_state.predictions.append(prediction)
-    st.session_state.total_pot += donation_amount
-    
-    st.success(f"""
-    ✅ **Prediksi Anda Berhasil Disimpan!**
-    
-    Terima kasih telah berpartisipasi dalam Rally for Impact.
-    
-    Nominal donasi Anda: **{format_currency(donation_amount)}**
-    
-    Total dana terkumpul: **{format_currency(int(st.session_state.total_pot))}**
-    
-    Silakan lanjutkan ke bagian berikutnya untuk menyelesaikan transaksi.
-    """)
-
-st.markdown("---")
-
-# Donation instructions
-st.markdown("""
-<div class="donation-info">
-    <div class="donation-info-title">💳 Cara Transfer Donasi Anda</div>
-    <div class="donation-info-text">
-        Setelah mengkonfirmasi prediksi Anda, silakan transfer nominal donasi ke rekening berikut:
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.markdown("""
-    **Bank BCA**
-    """)
-    st.markdown("""
-    <div class="donation-account">
-    1234567890<br>
-    (Rally for Impact)
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-    **Bank Mandiri**
-    """)
-    st.markdown("""
-    <div class="donation-account">
-    0987654321<br>
-    (Rally for Impact)
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-    **E-Wallet (GCash/Dana)**
-    """)
-    st.markdown("""
-    <div class="donation-account">
-    +62 812-3456-7890<br>
-    (Rally for Impact)
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("""
-**Catatan:** 
-- Pastikan nominal transfer sesuai dengan nominal yang Anda inputkan di atas
-- Konfirmasi transfer melalui WhatsApp ke nomor yang tersedia di halaman ini
-- Anda akan dihubungi kembali untuk verifikasi
-""")
-
-st.markdown("---")
-
-# Live statistics
-st.markdown("### 📊 Statistik Live")
-
-if st.session_state.predictions:
-    col1, col2, col3, col4 = st.columns(4)
-    
+    col1, col2 = st.columns(2)
     with col1:
-        st.metric("Total Prediksi", len(st.session_state.predictions))
-    
+        st.metric("💙 Boy Odds", f"{boy_odds:.2%}")
     with col2:
-        avg_donation = st.session_state.total_pot / len(st.session_state.predictions)
-        st.metric("Rata-rata Donasi", format_currency(int(avg_donation)))
-    
-    with col3:
-        st.metric("Total Dana Terkumpul", format_currency(int(st.session_state.total_pot)))
-    
-    with col4:
-        total_potential = sum(p['potential_winnings'] for p in st.session_state.predictions)
-        st.metric("Total Hadiah Potensial", format_currency(total_potential))
-    
-    # Chart
-    fig = go.Figure(data=[
-        go.Pie(
-            labels=['Tim A', 'Tim B', 'Tim C', 'Tim D'],
-            values=[
-                len([p for p in st.session_state.predictions if 'Tim A' in p['match1']]),
-                len([p for p in st.session_state.predictions if 'Tim B' in p['match1']]),
-                len([p for p in st.session_state.predictions if 'Tim C' in p['match2']]),
-                len([p for p in st.session_state.predictions if 'Tim D' in p['match2']])
-            ],
-            marker=dict(colors=['#1a472a', '#d4a574', '#e8795c', '#2d5a3d'])
+        st.metric("💖 Girl Odds", f"{girl_odds:.2%}")
+
+    st.markdown(f"**Total Pool:** Rp {total_pool:,.0f}")
+
+    # Pie Chart
+    if total_pool > 0:
+        fig = px.pie(
+            names=['Boy', 'Girl'],
+            values=[total_boy, total_girl],
+            color_discrete_sequence=['#1f77b4', '#ff69b4'],
+            title='Current Bet Distribution'
         )
-    ])
-    fig.update_layout(height=400, showlegend=True)
-    st.plotly_chart(fig, use_container_width=True)
+        fig.update_traces(textinfo='percent+label', pull=[0.05, 0.05])
+        fig.update_layout(
+            paper_bgcolor='#fff9c4',
+            plot_bgcolor='#fff9c4',
+            font_color='#212121'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("⚠️ Not enough data to render pie chart. Please place some bets.")
+    st.stop()
 
-else:
-    st.info("Belum ada prediksi. Mulai dengan membuat prediksi Anda di atas!")
+elif popout_mode == "line":
+    st.markdown("<h1 style='text-align: center; font-size: 36px;'>Place your bet: Boy or Girl</h1>", unsafe_allow_html=True)
+    odds = load_odds()
+    if not odds.empty:
+        fig = px.line(
+            odds,
+            x='Timestamp',
+            y=['Boy', 'Girl'],
+            markers=True,
+            title='Live Odds Over Time',
+            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'}
+        )
+        fig.update_layout(paper_bgcolor='#fff9c4', plot_bgcolor='#fff9c4')
+        st.plotly_chart(fig, use_container_width=True)
+        time.sleep(10)
+        st.rerun()
+    else:
+        st.warning("⚠️ No odds history yet. Please place a bet.")
+    st.stop()
 
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; margin-top: 2rem;'>
-    <p><strong>Rally for Impact</strong> - Prediction Market untuk Amal</p>
-    <p style='font-size: 0.9rem;'>Semua dana yang terkumpul akan didonasikan untuk acara amal.</p>
-</div>
-""", unsafe_allow_html=True)
+# -------------------------
+# MAIN DASHBOARD: Live Market + Admin
+# -------------------------
+if not popout_mode:
+    st.header("📊 Live Market")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("💙 Boy Odds", f"{boy_odds:.2%}")
+    with col2:
+        st.metric("💖 Girl Odds", f"{girl_odds:.2%}")
+
+    st.write(f"**Total Pool:** Rp {total_pool:,.0f}")
+
+    # Pie Chart
+    if total_pool > 0:
+        pie_fig = px.pie(
+            names=['Boy', 'Girl'],
+            values=[total_boy, total_girl],
+            color=['Boy', 'Girl'],
+            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'},
+            hole=0.3,
+            title="Current Bet Distribution"
+        )
+        pie_fig.update_layout(paper_bgcolor='#fff9c4')
+        st.plotly_chart(pie_fig, use_container_width=True)
+
+    # Line Chart
+    if not st.session_state.odds_history.empty:
+        line_fig = px.line(
+            st.session_state.odds_history,
+            x='Timestamp',
+            y=['Boy', 'Girl'],
+            markers=True,
+            title='Market Probability History',
+            color_discrete_map={'Boy': '#1f77b4', 'Girl': '#ff69b4'}
+        )
+        line_fig.update_layout(paper_bgcolor='#fff9c4', plot_bgcolor='#fff9c4')
+        st.plotly_chart(line_fig, use_container_width=True)
+
+    st.markdown("""
+    🔄 [Open Pie Chart in New Tab](?view=pie) | [Open Line Chart in New Tab](?view=line)
+    """)
+
+    # 🔒 SECRET ADMIN SECTION: Reveal Gender, Payouts & Reset
+    with st.expander("🔒 Admin: Reveal Gender, Payouts & Reset"):
+        admin_pass = st.text_input("Enter admin password:", type="password")
+
+        if admin_pass == "mysecret123":
+            st.header("🎁 Reveal the Actual Gender")
+            gender = st.selectbox("Actual Gender", ["-- Select --", "Boy", "Girl"])
+            if gender != "-- Select --":
+                st.session_state.actual_gender = gender
+                st.success(f"🎉 Actual Gender: {gender}")
+
+            if st.session_state.actual_gender:
+                winners = st.session_state.bets[st.session_state.bets['Choice'] == st.session_state.actual_gender]
+                total_winner_bets = winners['Bet'].sum()
+
+                payouts = []
+                for _, row in st.session_state.bets.iterrows():
+                    if row['Choice'] == st.session_state.actual_gender and total_winner_bets > 0:
+                        payout = row['Bet'] * total_pool / total_winner_bets
+                        payout = round(payout / 100000) * 100000
+                    else:
+                        payout = 0
+                    payouts.append(payout)
+
+                result = st.session_state.bets.copy()
+                result['Payout (Rupiah)'] = payouts
+
+                st.header("💰 Final Payouts")
+                result_display = result.copy()
+                result_display['Bet'] = result_display['Bet'].apply(lambda x: f"Rp {x:,.0f}")
+                result_display['Payout (Rupiah)'] = result_display['Payout (Rupiah)'].apply(lambda x: f"Rp {x:,.0f}")
+                st.dataframe(result_display)
+
+                st.write(f"🏆 Total Pool: Rp {total_pool:,.0f} distributed to winners.")
+
+                towrite = BytesIO()
+                with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
+                    result.to_excel(writer, index=False, sheet_name='Payouts')
+                towrite.seek(0)
+
+                st.download_button(
+                    label="📥 Download Payouts as Excel",
+                    data=towrite,
+                    file_name="GenderReveal_Payouts.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+            st.header("🗑️ Reset Market")
+            if st.button("🔄 Reset Everything"):
+                st.session_state.bets = pd.DataFrame(columns=['Name', 'Choice', 'Bet'])
+                st.session_state.actual_gender = None
+                st.session_state.odds_history = pd.DataFrame(columns=['Timestamp', 'Boy', 'Girl'])
+                save_bets(st.session_state.bets)
+                save_odds(st.session_state.odds_history)
+                st.rerun()
+        else:
+            st.info("🔑 Enter the admin password to access this section.")
