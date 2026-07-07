@@ -88,7 +88,7 @@ if isinstance(popout_mode, list):
 # Optional: Logo and Title
 # -------------------------
 if not popout_mode:
-    # st.image("Salinan dari KV Rally of Impact.png", width=1000)  # Comment jika image tidak ada
+    st.image("Salinan dari KV Rally of Impact.png", width=1000) 
     st.markdown(
         """
         <h1 style='text-align: center;'>
