@@ -91,7 +91,7 @@ if not popout_mode:
     # st.image("Salinan dari KV Rally of Impact.png", width=1000)  # Comment jika image tidak ada
     st.markdown(
         """
-        <h1 style='text-align: center; margin-top: -170px'>
+        <h1 style='text-align: center;'>
             🎉 Rally for Impact Market (Rupiah) - Real Money, % for Charity
         </h1>
         <p style='text-align: center; font-size: 18px; color: #212121;'>
