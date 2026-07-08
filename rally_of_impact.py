@@ -50,7 +50,7 @@ if 'odds_history' not in st.session_state:
 # -------------------------
 # Page Config & Styling
 # -------------------------
-st.set_page_config(page_title="Rally for Impact Market 🎉", layout="centered")
+st.set_page_config(page_title="Rally of Impact Market 🎉", layout="centered")
 
 st.markdown("""
 <style>
@@ -92,7 +92,7 @@ if not popout_mode:
     st.markdown(
         """
         <h1 style='text-align: center;'>
-            🎉 Rally for Impact Market (Rupiah) - Real Money, % for Charity
+            🎉 Rally of Impact Market (Rupiah) - Real Money, % for Charity
         </h1>
         <p style='text-align: center; font-size: 18px; color: #212121;'>
             Everyone places a bet on either <strong>'Team 1'</strong> or <strong>'Team 2'</strong>.<br>
